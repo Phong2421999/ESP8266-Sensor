@@ -40,5 +40,7 @@ smartconfig_done(sc_status	status,	void	*pdata)
 void ICACHE_FLASH_ATTR user_start_smartconfig()
 {
     smartconfig_set_type(SC_TYPE_ESPTOUCH);
+    smartconfig_stop();
+    wifi_set_opmode(STATION_MODE);
     smartconfig_start(smartconfig_done);
 }
