@@ -1,6 +1,11 @@
 #include "osapi.h"
 #include "smartconfig.h"
-void	ICACHE_FLASH_ATTR
+#include "tcp_server.h"
+#include "user_i2c.h"
+
+os_timer_t* timer;
+
+void ICACHE_FLASH_ATTR
 smartconfig_done(sc_status	status,	void	*pdata)
 {
     switch(status)	{
@@ -31,14 +36,21 @@ smartconfig_done(sc_status	status,	void	*pdata)
                 if	(pdata	!=	NULL)	{
                 uint8	phone_ip[4]	=	{0};
                 memcpy(phone_ip,	(uint8*)pdata,	4);
-                os_printf("Phone	ip:	%d.%d.%d.%d\n",phone_ip[0],phone_ip[1],phone_ip[2],phone_ip[3]);
+                user_i2c_init();
+                user_soft_reset();
+                os_timer_disarm(&timer);
+                os_timer_setfn(&timer,(os_timer_func_t *)user_read_data_sensor,NULL);
+                os_timer_arm(&timer,3000,0);
 			}
 		smartconfig_stop();
 		break;
     }
 }
+
 void ICACHE_FLASH_ATTR user_start_smartconfig()
 {
     smartconfig_set_type(SC_TYPE_ESPTOUCH);
+    smartconfig_stop();
+    wifi_set_opmode(STATION_MODE);
     smartconfig_start(smartconfig_done);
 }

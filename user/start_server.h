@@ -27,12 +27,6 @@ void ICACHE_FLASH_ATTR user_config_wifi(char ssid[32],char password[64])
 
     stationConfig.bssid_set = 0; // không cần xác nhận địa chỉ mac
 
-    // gán giá trị cho stationConfig;
-    os_memcpy(stationConfig.ssid,ssid,32);
-    os_memcpy(stationConfig.password,password,64);
-
-    // kết nối wifi;
-    wifi_station_set_config(&stationConfig);
 
     // chạy hàm kiểm tra
     os_timer_disarm(&timer);
