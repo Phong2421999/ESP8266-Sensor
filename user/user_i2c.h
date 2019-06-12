@@ -1,6 +1,7 @@
 #include "osapi.h"
 #include "i2c_master.h"
 #include "user_interface.h"
+#include "tcp_server.h"
 #include <stdio.h>
 
 #define slaveAddress 0x44
@@ -38,7 +39,7 @@ bool ICACHE_FLASH_ATTR user_check_crc(uint8_t MSB, uint8_t LSB, uint8_t CRC){
 
     uint8_t result = user_data_to_crc8(data,2);
 
-    if(CRC == result){
+    if(CRC == result && (CRC&2) == 0){
         os_printf("\r\n Last command successfully");
         return true;
     }
@@ -85,6 +86,7 @@ bool ICACHE_FLASH_ATTR user_send_command(uint8_t MSBCommand,uint8_t LSBCommand)
 }
 void ICACHE_FLASH_ATTR user_soft_reset()
 {
+    os_printf("\r\n==================Soft reset!==================");
     i2c_master_start();
     uint8_t startAddress = slaveAddress<<1;
     i2c_master_writeByte(startAddress);
@@ -110,7 +112,7 @@ void ICACHE_FLASH_ATTR user_soft_reset()
     
 }
 
-uint8_t ICACHE_FLASH_ATTR user_read_temp()
+void ICACHE_FLASH_ATTR user_get_raw_data(uint16_t data)
 {
     i2c_master_start();
     uint8_t readAddress = (slaveAddress<<1)+1;      
@@ -129,17 +131,33 @@ uint8_t ICACHE_FLASH_ATTR user_read_temp()
         i2c_master_send_ack();
         uint8_t CRCHuData = i2c_master_readByte();
         i2c_master_send_nack();
+       
+        int denominator = 1;
+        for(int i=0; i<16; i++){
+            denominator *=2;
+        }
+
+        denominator -= 1;
+
+        uint16_t temp;
+        temp = MSBTempData << 8;
+        temp |=  LSBTempData;
+        temp = -45 + 175*temp/denominator;
+
+        uint16_t hum;
+        hum = MSBHuData << 8;
+        hum |=  LSBHuData;
+        hum = 100*hum/denominator;
+        
         os_printf("\r\nRead temp register success!");
         os_printf("\r\nTemp Reigster Result: ");
-        os_printf("\r\nMSB: %d",MSBTempData);
-        os_printf("\r\nLSB: %d",LSBTempData);
-        os_printf("\r\nCRC: %d",CRCTempData);
-         os_printf("\r\nRead Hu register success!");
+        os_printf("\r\nTemp: %d",temp, "*C");
+        os_printf("\r\nRead Hu register success!");
         os_printf("\r\nHu Reigster Result: ");
-        os_printf("\r\nMSB: %d",MSBHuData);
-        os_printf("\r\nLSB: %d",LSBHuData);
-        os_printf("\r\nCRC: %d",CRCHuData);
+        os_printf("\r\nHum: %d",hum,"%"); 
         i2c_master_stop();
+        int data = temp*1000+hum;
+        user_tcp_init(3000,data);
     }
     else
     {
@@ -148,7 +166,7 @@ uint8_t ICACHE_FLASH_ATTR user_read_temp()
     }
 }
 
-uint8_t ICACHE_FLASH_ATTR user_get_data_low()
+uint8_t ICACHE_FLASH_ATTR user_read_data()
 {
     i2c_master_start();
     uint8_t startAddress = slaveAddress<<1;
@@ -158,8 +176,9 @@ uint8_t ICACHE_FLASH_ATTR user_get_data_low()
         
         if(user_send_command(0x23,0x29))
         {
+            
             os_timer_disarm(&timer);
-            os_timer_setfn(&timer,(os_timer_func_t *)user_read_temp,NULL);
+            os_timer_setfn(&timer,(os_timer_func_t *)user_get_raw_data,NULL);
             os_timer_arm(&timer,100,0);
         }
         else
@@ -176,8 +195,9 @@ uint8_t ICACHE_FLASH_ATTR user_get_data_low()
     }
 }
 
-void ICACHE_FLASH_ATTR user_read_data_sensor()
+void ICACHE_FLASH_ATTR user_read_data_from_sensor()
 {
+    os_printf("\r\n==================Read status register!==================");
     i2c_master_start();
     uint8_t startAddress = slaveAddress<<1;
     i2c_master_writeByte(startAddress);
@@ -199,18 +219,21 @@ void ICACHE_FLASH_ATTR user_read_data_sensor()
                 i2c_master_stop();
                 os_printf("\r\nRead status register success!");
                 os_printf("\r\nStatus Reigster Result: ");
-                os_printf("\r\nMSB: %d",MSBData);
-                os_printf("\r\nLSB: %d",LSBData);
-                os_printf("\r\nCRC: %d",CRCData);
+                os_printf("\r\nMSB Status Register: %d",MSBData);
+                os_printf("\r\nLSB Status Register: %d",LSBData);
+                os_printf("\r\nCRC Status Register: %d",CRCData);
                 if(user_check_crc(MSBData,LSBData,CRCData))
                 {
-                    user_get_data_low();
+                    os_printf("\r\n==================Read data!==================");
+                    user_read_data();
+
                 }
-                  else
+                else
                 {
-                os_printf("\r\nRead data from sensor fail!");
-                i2c_master_stop();
+                    os_printf("\r\nRead data from sensor fail!");
+                    i2c_master_stop();  
                 }
+                
             }
             else
             {

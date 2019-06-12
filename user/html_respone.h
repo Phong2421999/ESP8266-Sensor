@@ -1,10 +1,5 @@
-const char index_html[] = \
- "<!DOCTYPE html>"\
-"<html>"\
-"<body>"\
-    "<h1>Phong</h1>"\
-"</body>"\
-"</html>";
+
+
 
 const char hello_html[] = \
  "<!DOCTYPE html>"\

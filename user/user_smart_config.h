@@ -1,7 +1,7 @@
 #include "osapi.h"
 #include "smartconfig.h"
-#include "tcp_server.h"
 #include "user_i2c.h"
+
 
 os_timer_t* timer;
 
@@ -39,8 +39,10 @@ smartconfig_done(sc_status	status,	void	*pdata)
                 user_i2c_init();
                 user_soft_reset();
                 os_timer_disarm(&timer);
-                os_timer_setfn(&timer,(os_timer_func_t *)user_read_data_sensor,NULL);
-                os_timer_arm(&timer,3000,0);
+                os_timer_setfn(&timer,(os_timer_func_t *)user_read_data_from_sensor,NULL);
+                os_timer_arm(&timer,150,1);
+        
+               
 			}
 		smartconfig_stop();
 		break;
@@ -54,3 +56,5 @@ void ICACHE_FLASH_ATTR user_start_smartconfig()
     wifi_set_opmode(STATION_MODE);
     smartconfig_start(smartconfig_done);
 }
+
+
